@@ -34,12 +34,18 @@ export const LoginModal = ({ onLogin, error, isLoading }: LoginModalProps) => {
     usernameRef.current?.focus();
   }, []);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (username.trim() && password && !isLoading) {
+    
+    // Get values from form elements directly (handles both React state and autofilled values)
+    const formData = new FormData(e.currentTarget);
+    const usernameValue = (formData.get('username') as string)?.trim() || '';
+    const passwordValue = formData.get('password') as string || '';
+    
+    if (usernameValue && passwordValue && !isLoading) {
       onLogin({
-        username: username.trim(),
-        password,
+        username: usernameValue,
+        password: passwordValue,
         remember_me: rememberMe,
       });
     }
@@ -168,7 +174,7 @@ export const LoginModal = ({ onLogin, error, isLoading }: LoginModalProps) => {
           <button
             type="submit"
             name="submit"
-            disabled={isLoading || !username.trim() || !password}
+            disabled={isLoading}
             className="w-full py-2.5 px-4 rounded-lg font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-sky-700 hover:bg-sky-800 disabled:hover:bg-sky-700"
             aria-label="Sign in"
           >
