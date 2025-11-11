@@ -209,7 +209,7 @@ function App() {
     prevStatusRef.current = currentStatus;
   }, [currentStatus, detectChanges]);
 
-  // Fetch config on mount
+  // Fetch config on mount and when authentication changes
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -220,8 +220,11 @@ function App() {
         // Use defaults if config fails to load
       }
     };
-    loadConfig();
-  }, []);
+    // Only fetch config if authenticated (or auth is not required)
+    if (isAuthenticated) {
+      loadConfig();
+    }
+  }, [isAuthenticated]);
 
   // Log WebSocket connection status changes
   useEffect(() => {
