@@ -5,7 +5,7 @@ interface LoginModalProps {
   onLogin: (credentials: LoginCredentials) => void;
   error: string | null;
   isLoading: boolean;
-  isOpen: boolean;
+  isClosing?: boolean;
 }
 
 // Eye icons components to reduce inline SVG clutter
@@ -22,33 +22,17 @@ const EyeSlashIcon = () => (
   </svg>
 );
 
-export const LoginModal = ({ onLogin, error, isLoading, isOpen }: LoginModalProps) => {
+export const LoginModal = ({ onLogin, error, isLoading, isClosing = false }: LoginModalProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const usernameRef = useRef<HTMLInputElement>(null);
 
-  // Handle fade-in animation on mount/open
+  // Focus username field on mount
   useEffect(() => {
-    if (isOpen) {
-      // Trigger fade-in animation
-      requestAnimationFrame(() => {
-        setIsAnimating(true);
-      });
-    } else {
-      // Trigger fade-out animation
-      setIsAnimating(false);
-    }
-  }, [isOpen]);
-
-  // Focus username field when modal opens
-  useEffect(() => {
-    if (isOpen && isAnimating) {
-      usernameRef.current?.focus();
-    }
-  }, [isOpen, isAnimating]);
+    usernameRef.current?.focus();
+  }, []);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -61,23 +45,9 @@ export const LoginModal = ({ onLogin, error, isLoading, isOpen }: LoginModalProp
     }
   };
 
-  // Don't render if not open and animation is complete
-  if (!isOpen && !isAnimating) {
-    return null;
-  }
-
   return (
-    <div 
-      className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/20 m-0 transition-opacity duration-300 ${
-        isAnimating ? 'opacity-100' : 'opacity-0'
-      }`}
-    >
-      <div 
-        className={`rounded-lg shadow-2xl p-8 w-full max-w-md mx-4 border transition-all duration-300 ${
-          isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}
-        style={{ backgroundColor: 'var(--card-background)', color: 'var(--text-color)', borderColor: 'var(--border-color)' }}
-      >
+    <div className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/50 m-0 transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`rounded-lg shadow-2xl p-8 w-full max-w-md mx-4 border transition-all duration-300 ${isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`} style={{ backgroundColor: 'var(--card-background)', color: 'var(--text-color)', borderColor: 'var(--border-color)' }}>
         {/* Logo and Title */}
         <div className="text-center mb-6">
           <img 

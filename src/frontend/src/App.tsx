@@ -169,9 +169,15 @@ function App() {
     try {
       const response = await login(credentials);
       if (response.success) {
-        setIsAuthenticated(true);
-        setShowLoginModal(false);
-        setLoginError(null);
+        // Wait a brief moment for any UI updates, then start fade transition
+        setTimeout(() => {
+          setIsAuthenticated(true);
+          // Hide modal after a brief delay to allow fade-out
+          setTimeout(() => {
+            setShowLoginModal(false);
+            setLoginError(null);
+          }, 300);
+        }, 100);
       } else {
         setLoginError(response.error || 'Login failed');
       }
@@ -371,16 +377,18 @@ function App() {
   return (
     <>
       {/* Login Modal */}
-      <LoginModal
-        onLogin={handleLogin}
-        error={loginError}
-        isLoading={isLoggingIn}
-        isOpen={showLoginModal}
-      />
+      {showLoginModal && (
+        <LoginModal
+          onLogin={handleLogin}
+          error={loginError}
+          isLoading={isLoggingIn}
+          isClosing={isAuthenticated && showLoginModal}
+        />
+      )}
 
       {/* Main App Content - Only render when authenticated */}
       {isAuthenticated && (
-        <>
+        <div className="animate-fade-in-up">
           <Header 
             calibreWebUrl={config?.calibre_web_url || ''} 
             debug={config?.debug || false}
@@ -474,7 +482,7 @@ function App() {
             onCancel={handleCancel}
             activeCount={activeCount}
           />
-        </>
+        </div>
       )}
     </>
   );
