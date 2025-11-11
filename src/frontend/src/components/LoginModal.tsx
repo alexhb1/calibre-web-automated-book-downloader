@@ -5,7 +5,6 @@ interface LoginModalProps {
   onLogin: (credentials: LoginCredentials) => void;
   error: string | null;
   isLoading: boolean;
-  isClosing?: boolean;
 }
 
 // Eye icons components to reduce inline SVG clutter
@@ -22,7 +21,7 @@ const EyeSlashIcon = () => (
   </svg>
 );
 
-export const LoginModal = ({ onLogin, error, isLoading, isClosing = false }: LoginModalProps) => {
+export const LoginModal = ({ onLogin, error, isLoading }: LoginModalProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -46,8 +45,8 @@ export const LoginModal = ({ onLogin, error, isLoading, isClosing = false }: Log
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/50 m-0 transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}>
-      <div className={`rounded-lg shadow-2xl p-8 w-full max-w-md mx-4 border transition-all duration-300 ${isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`} style={{ backgroundColor: 'var(--card-background)', color: 'var(--text-color)', borderColor: 'var(--border-color)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/50 m-0">
+      <div className="rounded-lg shadow-2xl p-8 w-full max-w-md mx-4 border" style={{ backgroundColor: 'var(--card-background)', color: 'var(--text-color)', borderColor: 'var(--border-color)' }}>
         {/* Logo and Title */}
         <div className="text-center mb-6">
           <img 
