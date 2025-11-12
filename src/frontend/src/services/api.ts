@@ -36,11 +36,26 @@ async function fetchJSON<T>(url: string, opts: RequestInit = {}): Promise<T> {
     },
   });
   
-  if (res.status === 401) {
-    throw new AuthenticationError('Unauthorized');
+  if (!res.ok) {
+    // Try to parse error message from response body
+    let errorMessage = `${res.status} ${res.statusText}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch (e) {
+      // If we can't parse JSON, use the default error message
+    }
+    
+    // Throw appropriate error based on status code
+    if (res.status === 401) {
+      throw new AuthenticationError(errorMessage);
+    }
+    
+    throw new Error(errorMessage);
   }
   
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
 

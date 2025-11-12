@@ -73,7 +73,7 @@ export const LoginModal = ({ onLogin, error, isLoading }: LoginModalProps) => {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-3 rounded-lg text-sm border bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50">
+          <div className="mb-4 p-3 rounded-lg text-sm bg-red-600 text-white">
             {error}
           </div>
         )}

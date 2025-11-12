@@ -720,9 +720,15 @@ def api_login() -> Union[Response, Tuple[Response, int]]:
                     }), 429
                 else:
                     attempts_remaining = MAX_LOGIN_ATTEMPTS - failed_login_attempts[username]['count']
-                    return jsonify({
-                        "error": f"Invalid username or password. {attempts_remaining} attempts remaining."
-                    }), 401
+                    # Only show attempts remaining when 5 or fewer attempts remain (after 6+ failed attempts)
+                    if attempts_remaining <= 5:
+                        return jsonify({
+                            "error": f"Invalid username or password. {attempts_remaining} attempts remaining."
+                        }), 401
+                    else:
+                        return jsonify({
+                            "error": "Invalid username or password."
+                        }), 401
             
             # Successful authentication - create session and clear failed attempts
             session['user_id'] = username
