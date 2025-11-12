@@ -67,7 +67,7 @@ export const Header = ({
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or pressing ESC
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -75,12 +75,20 @@ export const Header = ({
       }
     };
 
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDropdownOpen(false);
+      }
+    };
+
     if (isDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
     };
   }, [isDropdownOpen]);
 
@@ -121,11 +129,28 @@ export const Header = ({
   // Icon buttons component - reused for both states
   const IconButtons = () => (
     <div className="flex items-center gap-2">
+      {/* Calibre-Web Button */}
+      {calibreWebUrl && (
+        <a
+          href={calibreWebUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+          aria-label="Open Calibre-Web"
+          title="Go To Library"
+        >
+          <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
+          <span className="text-sm font-medium">Go To Library</span>
+        </a>
+      )}
+
       {/* Downloads Button */}
       {onDownloadsClick && (
         <button
           onClick={onDownloadsClick}
-          className="relative flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="relative flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
           aria-label="View downloads"
           title="Downloads"
         >
@@ -164,28 +189,13 @@ export const Header = ({
         </button>
       )}
 
-      {/* Calibre-Web Button */}
-      {calibreWebUrl && (
-        <a
-          href={calibreWebUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Open Calibre-Web"
-          title="Go To Library"
-        >
-          <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-          </svg>
-          <span className="text-sm font-medium">Go To Library</span>
-        </a>
-      )}
-
       {/* User Menu Dropdown */}
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className={`relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+            isDropdownOpen ? 'bg-gray-100 dark:bg-gray-700' : ''
+          }`}
           aria-label="User menu"
           aria-expanded={isDropdownOpen}
           aria-haspopup="true"
@@ -218,6 +228,7 @@ export const Header = ({
             <div className="py-1">
               {/* Theme Button */}
               <button
+                type="button"
                 onClick={cycleTheme}
                 className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
               >
@@ -270,13 +281,14 @@ export const Header = ({
               {/* Logout Button */}
               {authRequired && isAuthenticated && onLogout && (
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-3 text-red-600 dark:text-red-400"
                 >
                   <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
                   </svg>
-                  <span>Logout</span>
+                  <span>Sign Out</span>
                 </button>
               )}
             </div>
