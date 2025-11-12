@@ -2,15 +2,9 @@ interface FooterProps {
   buildVersion?: string;
   releaseVersion?: string;
   appEnv?: string;
-  authRequired?: boolean;
-  isAuthenticated?: boolean;
-  onLogout?: () => void;
 }
 
-export const Footer = ({ buildVersion, releaseVersion, appEnv, authRequired, isAuthenticated, onLogout }: FooterProps) => {
-  // Show logout button only if auth is required AND user is authenticated
-  const showLogout = authRequired && isAuthenticated && onLogout;
-  
+export const Footer = ({ buildVersion, releaseVersion, appEnv }: FooterProps) => {
   return (
     <footer className="mt-10 border-t pt-6 pb-10" style={{ borderColor: 'var(--border-muted)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -22,14 +16,6 @@ export const Footer = ({ buildVersion, releaseVersion, appEnv, authRequired, isA
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {showLogout && (
-            <button
-              onClick={onLogout}
-              className="text-xs opacity-60 hover:opacity-100 transition-opacity"
-            >
-              Logout
-            </button>
-          )}
           <a
             href="https://github.com/calibrain/calibre-web-automated-book-downloader"
             className="opacity-80 hover:opacity-100"

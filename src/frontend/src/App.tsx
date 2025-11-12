@@ -392,6 +392,9 @@ function App() {
             onDownloadsClick={() => setDownloadsSidebarOpen(true)}
             statusCounts={statusCounts}
             onLogoClick={handleResetSearch}
+            authRequired={authRequired}
+            isAuthenticated={isAuthenticated}
+            onLogout={handleLogout}
             onSearch={() => {
               const q: string[] = [];
               const basic = searchInput.trim();
@@ -459,9 +462,6 @@ function App() {
             buildVersion={config?.build_version || 'dev'} 
             releaseVersion={config?.release_version || 'dev'} 
             appEnv={config?.app_env || 'development'}
-            authRequired={authRequired}
-            isAuthenticated={isAuthenticated}
-            onLogout={handleLogout}
           />
           <ToastContainer toasts={toasts} />
           
