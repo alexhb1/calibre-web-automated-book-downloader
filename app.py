@@ -3,6 +3,8 @@
 import logging
 import io, re, os
 import sqlite3
+import time
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, send_file, send_from_directory, session
 from flask_cors import CORS
@@ -58,6 +60,63 @@ socketio = SocketIO(
 ws_manager.init_app(app, socketio)
 logger.info(f"Flask-SocketIO initialized with async_mode='{async_mode}'")
 
+# Rate limiting for login attempts
+# Structure: {username: {'count': int, 'lockout_until': datetime}}
+failed_login_attempts: typing.Dict[str, typing.Dict[str, typing.Any]] = {}
+MAX_LOGIN_ATTEMPTS = 10
+LOCKOUT_DURATION_MINUTES = 30
+
+def cleanup_old_lockouts() -> None:
+    """Remove expired lockout entries to prevent memory buildup."""
+    current_time = datetime.now()
+    expired_users = [
+        username for username, data in failed_login_attempts.items()
+        if 'lockout_until' in data and data['lockout_until'] < current_time
+    ]
+    for username in expired_users:
+        logger.info(f"Lockout expired for user: {username}")
+        del failed_login_attempts[username]
+
+def is_account_locked(username: str) -> bool:
+    """Check if an account is currently locked due to failed login attempts."""
+    cleanup_old_lockouts()
+    
+    if username not in failed_login_attempts:
+        return False
+    
+    lockout_until = failed_login_attempts[username].get('lockout_until')
+    if lockout_until and datetime.now() < lockout_until:
+        return True
+    
+    return False
+
+def record_failed_login(username: str, ip_address: str) -> bool:
+    """
+    Record a failed login attempt and lock account if threshold is reached.
+    Returns True if account is now locked, False otherwise.
+    """
+    if username not in failed_login_attempts:
+        failed_login_attempts[username] = {'count': 0}
+    
+    failed_login_attempts[username]['count'] += 1
+    count = failed_login_attempts[username]['count']
+    
+    logger.warning(f"Failed login attempt {count}/{MAX_LOGIN_ATTEMPTS} for user '{username}' from IP {ip_address}")
+    
+    if count >= MAX_LOGIN_ATTEMPTS:
+        lockout_until = datetime.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        failed_login_attempts[username]['lockout_until'] = lockout_until
+        logger.warning(f"Account locked for user '{username}' until {lockout_until.strftime('%Y-%m-%d %H:%M:%S')} due to {count} failed login attempts")
+        return True
+    
+    return False
+
+def clear_failed_logins(username: str) -> None:
+    """Clear failed login attempts for a user after successful login."""
+    if username in failed_login_attempts:
+        del failed_login_attempts[username]
+        logger.debug(f"Cleared failed login attempts for user: {username}")
+
 # Enable CORS in development mode for local frontend development
 if DEBUG:
     CORS(app, resources={
@@ -80,13 +139,28 @@ werkzeug_logger.setLevel(logger.level)
 # Set up authentication defaults
 # The secret key will reset every time we restart, which will
 # require users to authenticate again
+
+# Auto-detect HTTPS for secure cookies
+# Can be overridden with SESSION_COOKIE_SECURE environment variable
+session_cookie_secure_env = os.getenv('SESSION_COOKIE_SECURE', 'auto').lower()
+if session_cookie_secure_env == 'auto':
+    # Auto-detect: check if we're behind a reverse proxy with HTTPS
+    # This will be determined per-request, but default to False for local HTTP
+    SESSION_COOKIE_SECURE = False
+elif session_cookie_secure_env in ['true', 'yes', '1']:
+    SESSION_COOKIE_SECURE = True
+else:
+    SESSION_COOKIE_SECURE = False
+
 app.config.update(
     SECRET_KEY = os.urandom(64),
     SESSION_COOKIE_HTTPONLY = True,
     SESSION_COOKIE_SAMESITE = 'Lax',
-    SESSION_COOKIE_SECURE = False,  # Set to True if using HTTPS
+    SESSION_COOKIE_SECURE = SESSION_COOKIE_SECURE,
     PERMANENT_SESSION_LIFETIME = 604800  # 7 days in seconds
 )
+
+logger.info(f"Session cookie secure setting: {SESSION_COOKIE_SECURE} (from env: {session_cookie_secure_env})")
 
 def login_required(f):
     @wraps(f)
@@ -575,6 +649,7 @@ def internal_error(error: Exception) -> Union[Response, Tuple[Response, int]]:
 def api_login() -> Union[Response, Tuple[Response, int]]:
     """
     Login endpoint that validates credentials and creates a session.
+    Includes rate limiting: 10 failed attempts = 30 minute lockout.
     
     Request Body:
         username (str): Username
@@ -585,6 +660,12 @@ def api_login() -> Union[Response, Tuple[Response, int]]:
         flask.Response: JSON with success status or error message.
     """
     try:
+        # Get client IP address (handles reverse proxy forwarding)
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if ip_address and ',' in ip_address:
+            # X-Forwarded-For can contain multiple IPs, take the first one
+            ip_address = ip_address.split(',')[0].strip()
+        
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
@@ -596,11 +677,21 @@ def api_login() -> Union[Response, Tuple[Response, int]]:
         if not username or not password:
             return jsonify({"error": "Username and password are required"}), 400
         
+        # Check if account is locked due to failed login attempts
+        if is_account_locked(username):
+            lockout_until = failed_login_attempts[username].get('lockout_until')
+            remaining_time = (lockout_until - datetime.now()).total_seconds() / 60
+            logger.warning(f"Login attempt blocked for locked account '{username}' from IP {ip_address}")
+            return jsonify({
+                "error": f"Account temporarily locked due to multiple failed login attempts. Try again in {int(remaining_time)} minutes."
+            }), 429
+        
         # If the database doesn't exist, authentication always succeeds
         if not CWA_DB_PATH:
             session['user_id'] = username
             session.permanent = remember_me
-            logger.info(f"Login successful for user {username} (no DB configured)")
+            clear_failed_logins(username)
+            logger.info(f"Login successful for user '{username}' from IP {ip_address} (no DB configured)")
             return jsonify({"success": True})
         
         # If the CWA_DB_PATH variable exists, but isn't a valid path, return error
@@ -620,13 +711,24 @@ def api_login() -> Union[Response, Tuple[Response, int]]:
             
             # Check if user exists and password is correct
             if not row or not row[0] or not check_password_hash(row[0], password):
-                logger.warning(f"Login failed for user {username}: Invalid credentials")
-                return jsonify({"error": "Invalid username or password"}), 401
+                # Record failed login attempt
+                is_now_locked = record_failed_login(username, ip_address)
+                
+                if is_now_locked:
+                    return jsonify({
+                        "error": f"Account locked due to {MAX_LOGIN_ATTEMPTS} failed login attempts. Try again in {LOCKOUT_DURATION_MINUTES} minutes."
+                    }), 429
+                else:
+                    attempts_remaining = MAX_LOGIN_ATTEMPTS - failed_login_attempts[username]['count']
+                    return jsonify({
+                        "error": f"Invalid username or password. {attempts_remaining} attempts remaining."
+                    }), 401
             
-            # Successful authentication - create session
+            # Successful authentication - create session and clear failed attempts
             session['user_id'] = username
             session.permanent = remember_me
-            logger.info(f"Login successful for user {username} (remember_me={remember_me})")
+            clear_failed_logins(username)
+            logger.info(f"Login successful for user '{username}' from IP {ip_address} (remember_me={remember_me})")
             return jsonify({"success": True})
             
         except Exception as e:
@@ -646,9 +748,14 @@ def api_logout() -> Union[Response, Tuple[Response, int]]:
         flask.Response: JSON with success status.
     """
     try:
+        # Get client IP address (handles reverse proxy forwarding)
+        ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
+        if ip_address and ',' in ip_address:
+            ip_address = ip_address.split(',')[0].strip()
+        
         username = session.get('user_id', 'unknown')
         session.clear()
-        logger.info(f"Logout successful for user {username}")
+        logger.info(f"Logout successful for user '{username}' from IP {ip_address}")
         return jsonify({"success": True})
     except Exception as e:
         logger.error_trace(f"Logout error: {e}")
